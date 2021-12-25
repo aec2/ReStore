@@ -1,16 +1,21 @@
 import { tableBodyClasses } from "@mui/material";
 import axios, { AxiosError, AxiosResponse } from "axios";
 import { toast } from "react-toastify";
+import { history } from "../..";
+
+const sleep = () => new Promise((resolve) => setTimeout(resolve, 500));
 
 axios.defaults.baseURL = "http://localhost:5000/api/";
 
 const responseBody = (response: AxiosResponse) => response.data;
 
 axios.interceptors.response.use(
-  (response) => {
+  async (response) => {
+    await sleep();
     return response;
   },
   (error: AxiosError) => {
+    console.log(error);
     const { data, status } = error.response!;
     switch (status) {
       case 400:
@@ -29,7 +34,10 @@ axios.interceptors.response.use(
         toast.error(data.title);
         break;
       case 500:
-        toast.error(data.title);
+        history.push({
+          pathname: "/server-error",
+          state: { error: data },
+        });
         break;
       default:
         break;
