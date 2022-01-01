@@ -31,7 +31,7 @@ export default function BasketPage() {
   function handleRemoveItem(productId: number, quantity = 1) {
     setLoading(true);
     agent.Basket.removeItem(productId, quantity)
-      .then((basket) => setBasket(basket))
+      .then(() => removeItem(productId, quantity))
       .catch((error) => console.log(error))
       .finally(() => setLoading(false));
   }
