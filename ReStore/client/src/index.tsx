@@ -11,8 +11,6 @@ import { fetchProductsAsync } from "./features/catalog/catalogSlice";
 
 export const history = createBrowserHistory();
 
-store.dispatch(fetchProductsAsync());
-
 ReactDOM.render(
   <React.StrictMode>
     <Router history={history}>
