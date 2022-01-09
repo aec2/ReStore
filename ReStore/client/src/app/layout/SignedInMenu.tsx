@@ -5,6 +5,7 @@ import MenuItem from "@mui/material/MenuItem";
 import { Fade } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "../store/configureStore";
 import { signOut } from "../../features/account/accountSlice";
+import { clearBasket } from "../../features/basket/basketSlice";
 
 export default function SigndInMenu() {
   const dispatch = useAppDispatch();
@@ -34,7 +35,7 @@ export default function SigndInMenu() {
         <MenuItem
           onClick={() => {
             dispatch(signOut());
-            // dispatch(clearBasket());
+            dispatch(clearBasket());
           }}
         >
           Logout
