@@ -23,21 +23,21 @@ namespace API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<Order>>> GetOrders()
+        public async Task<ActionResult<List<OrderDto>>> GetOrders()
         {
             return await _context.Orders
-            .Include(o => o.OrderItems)
+            .ProjectOrderToOrderDto()
             .Where(x => x.BuyerId == User.Identity.Name)
             .ToListAsync();
         }
 
         [HttpGet("{id}", Name = "GetOrder")]
-        public async Task<ActionResult<Order>> GetOrder(int Id)
+        public async Task<ActionResult<OrderDto>> GetOrder(int id)
         {
             return await _context.Orders
-            .Include(o => o.OrderItems)
-            .Where(x => x.BuyerId == User.Identity.Name && x.Id == Id)
-            .FirstOrDefaultAsync();
+                .ProjectOrderToOrderDto()
+                .Where(x => x.BuyerId == User.Identity.Name && x.Id == id)
+                .FirstOrDefaultAsync();
         }
 
         [HttpPost]
