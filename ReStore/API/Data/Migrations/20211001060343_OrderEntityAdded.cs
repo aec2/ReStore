@@ -288,12 +288,12 @@ namespace API.Data.Migrations
             migrationBuilder.InsertData(
                 table: "AspNetRoles",
                 columns: new[] { "Id", "ConcurrencyStamp", "Name", "NormalizedName" },
-                values: new object[] { 1, "630ae9d3-226a-45c8-94b2-9f18e493b84d", "Member", "MEMBER" });
+                values: new object[] { 1, "ee33a03a-33f1-4803-a64a-4ab20c7ffd6a", "Member", "MEMBER" });
 
             migrationBuilder.InsertData(
                 table: "AspNetRoles",
                 columns: new[] { "Id", "ConcurrencyStamp", "Name", "NormalizedName" },
-                values: new object[] { 2, "a34fce32-4c2e-4caf-97b9-80ae0b8e3268", "Admin", "ADMIN" });
+                values: new object[] { 2, "988cee4e-cdf3-4ec6-8f5e-c9923e89c160", "Admin", "ADMIN" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",

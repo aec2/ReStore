@@ -14,7 +14,7 @@ namespace API.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "5.0.9");
+                .HasAnnotation("ProductVersion", "5.0.10");
 
             modelBuilder.Entity("API.Entities.Basket", b =>
                 {
@@ -164,14 +164,14 @@ namespace API.Data.Migrations
                         new
                         {
                             Id = 1,
-                            ConcurrencyStamp = "630ae9d3-226a-45c8-94b2-9f18e493b84d",
+                            ConcurrencyStamp = "ee33a03a-33f1-4803-a64a-4ab20c7ffd6a",
                             Name = "Member",
                             NormalizedName = "MEMBER"
                         },
                         new
                         {
                             Id = 2,
-                            ConcurrencyStamp = "a34fce32-4c2e-4caf-97b9-80ae0b8e3268",
+                            ConcurrencyStamp = "988cee4e-cdf3-4ec6-8f5e-c9923e89c160",
                             Name = "Admin",
                             NormalizedName = "ADMIN"
                         });

@@ -1,9 +1,8 @@
-
-using Microsoft.EntityFrameworkCore;
 using API.Entities;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
 using API.Entities.OrderAggregate;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Data
 {
@@ -11,7 +10,6 @@ namespace API.Data
     {
         public StoreContext(DbContextOptions options) : base(options)
         {
-
         }
 
         public DbSet<Product> Products { get; set; }
@@ -23,16 +21,16 @@ namespace API.Data
             base.OnModelCreating(builder);
 
             builder.Entity<User>()
-            .HasOne(a => a.Address)
-            .WithOne()
-            .HasForeignKey<UserAddress>(a => a.Id)
-            .OnDelete(DeleteBehavior.Cascade);
+                .HasOne(a => a.Address)
+                .WithOne()
+                .HasForeignKey<UserAddress>(a => a.Id)
+                .OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<Role>()
-            .HasData(
-                new Role { Id = 1, Name = "Member", NormalizedName = "MEMBER" },
-                new Role { Id = 2, Name = "Admin", NormalizedName = "ADMIN" }
-            );
+                .HasData(
+                    new Role { Id = 1, Name = "Member", NormalizedName = "MEMBER" },
+                    new Role { Id = 2, Name = "Admin", NormalizedName = "ADMIN" }
+                );
         }
     }
 }

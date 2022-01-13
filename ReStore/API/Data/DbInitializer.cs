@@ -28,13 +28,14 @@ namespace API.Data
                 };
 
                 await userManager.CreateAsync(admin, "Pa$$w0rd");
-                await userManager.AddToRolesAsync(admin, new[] { "Member", "Admin" });
+                await userManager.AddToRolesAsync(admin, new[] {"Member", "Admin"});
             }
 
             if (context.Products.Any()) return;
 
-            var products = new List<Product>{
-        new Product
+            var products = new List<Product>
+            {
+                new Product
                 {
                     Name = "Angular Speedster Board 2000",
                     Description =
@@ -236,8 +237,8 @@ namespace API.Data
             {
                 context.Products.Add(product);
             }
-            context.SaveChanges(); // Hepsine db'deki tabloya kaydediyor.
 
+            context.SaveChanges();
         }
     }
 }

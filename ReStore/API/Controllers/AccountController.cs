@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-
 namespace API.Controllers
 {
     public class AccountController : BaseApiController
@@ -23,18 +22,18 @@ namespace API.Controllers
             _context = context;
             _tokenService = tokenService;
             _userManager = userManager;
-
         }
 
         [HttpPost("login")]
         public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
         {
             var user = await _userManager.FindByNameAsync(loginDto.Username);
+
             if (user == null || !await _userManager.CheckPasswordAsync(user, loginDto.Password))
                 return Unauthorized();
 
-            var userBasket = await RetriveBasket(loginDto.Username);
-            var anonBasket = await RetriveBasket(Request.Cookies["buyerId"]);
+            var userBasket = await RetrieveBasket(loginDto.Username);
+            var anonBasket = await RetrieveBasket(Request.Cookies["buyerId"]);
 
             if (anonBasket != null)
             {
@@ -43,6 +42,7 @@ namespace API.Controllers
                 Response.Cookies.Delete("buyerId");
                 await _context.SaveChangesAsync();
             }
+
             return new UserDto
             {
                 Email = user.Email,
@@ -64,8 +64,10 @@ namespace API.Controllers
                 {
                     ModelState.AddModelError(error.Code, error.Description);
                 }
+
                 return ValidationProblem();
             }
+
             await _userManager.AddToRoleAsync(user, "Member");
 
             return StatusCode(201);
@@ -77,7 +79,7 @@ namespace API.Controllers
         {
             var user = await _userManager.FindByNameAsync(User.Identity.Name);
 
-            var userBasket = await RetriveBasket(User.Identity.Name);
+            var userBasket = await RetrieveBasket(User.Identity.Name);
 
             return new UserDto
             {
@@ -87,17 +89,28 @@ namespace API.Controllers
             };
         }
 
-        private async Task<Basket> RetriveBasket(string buyerId)
+        [Authorize]
+        [HttpGet("savedAddress")]
+        public async Task<ActionResult<UserAddress>> GetSavedAddress()
+        {
+            return await _userManager.Users
+                .Where(x => x.UserName == User.Identity.Name)
+                .Select(user => user.Address)
+                .FirstOrDefaultAsync();
+        }
+
+        private async Task<Basket> RetrieveBasket(string buyerId)
         {
             if (string.IsNullOrEmpty(buyerId))
             {
                 Response.Cookies.Delete("buyerId");
                 return null;
             }
+
             return await _context.Baskets
-            .Include(i => i.Items)
-            .ThenInclude(p => p.Product)
-            .FirstOrDefaultAsync(x => x.BuyerId == buyerId);
+                .Include(i => i.Items)
+                .ThenInclude(p => p.Product)
+                .FirstOrDefaultAsync(x => x.BuyerId == buyerId);
         }
     }
 }

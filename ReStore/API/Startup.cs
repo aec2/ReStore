@@ -1,20 +1,19 @@
+using System.Collections.Generic;
+using System.Text;
+using API.Data;
+using API.Entities;
+using API.Middleware;
+using API.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.OpenApi.Models;
-using API.Data;
-using Microsoft.EntityFrameworkCore;
-using API.Middleware;
-using Microsoft.AspNetCore.Identity;
-using API.Entities;
-using API.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using System.Security.Cryptography.Xml;
-using System.Collections.Generic;
+using Microsoft.OpenApi.Models;
 
 namespace API
 {
@@ -46,14 +45,15 @@ namespace API
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
-                        new OpenApiSecurityScheme{
-                            Reference = new OpenApiReference{
-
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "Bearer"
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
                             },
-                            Scheme ="oauth2",
-                            Name ="Bearer",
+                            Scheme = "oauth2",
+                            Name = "Bearer",
                             In = ParameterLocation.Header
                         },
                         new List<string>()
@@ -64,27 +64,26 @@ namespace API
             {
                 opt.UseSqlite(Configuration.GetConnectionString("DefaultConnection"));
             });
-
             services.AddCors();
             services.AddIdentityCore<User>(opt =>
             {
                 opt.User.RequireUniqueEmail = true;
-            }
-            )
-                    .AddRoles<Role>()
-                    .AddEntityFrameworkStores<StoreContext>();
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(opt =>
-            {
-                opt.TokenValidationParameters = new TokenValidationParameters
+            })
+                .AddRoles<Role>()
+                .AddEntityFrameworkStores<StoreContext>();
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(opt =>
                 {
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.
-                    GetBytes(Configuration["JWTSettings:TokenKey"]))
-                };
-            });
+                    opt.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = false,
+                        ValidateAudience = false,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8
+                            .GetBytes(Configuration["JWTSettings:TokenKey"]))
+                    };
+                });
             services.AddAuthorization();
             services.AddScoped<TokenService>();
         }
@@ -100,7 +99,7 @@ namespace API
                 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "API v1"));
             }
 
-            // app.UseHttpsRedirection(); 
+            // app.UseHttpsRedirection();
 
             app.UseRouting();
             app.UseCors(opt =>

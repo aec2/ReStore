@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Configuration;
 
 namespace API
 {
@@ -21,7 +20,6 @@ namespace API
             var context = scope.ServiceProvider.GetRequiredService<StoreContext>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-
             try
             {
                 await context.Database.MigrateAsync();
@@ -30,8 +28,8 @@ namespace API
             catch (Exception ex)
             {
                 logger.LogError(ex, "Problem migrating data");
-                throw;
             }
+
             await host.RunAsync();
         }
 
