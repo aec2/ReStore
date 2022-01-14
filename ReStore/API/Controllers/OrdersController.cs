@@ -25,10 +25,10 @@ namespace API.Controllers
         [HttpGet]
         public async Task<ActionResult<List<OrderDto>>> GetOrders()
         {
-             return await _context.Orders
-                .ProjectOrderToOrderDto()
-                .Where(x => x.BuyerId == User.Identity.Name)
-                .ToListAsync();
+            return await _context.Orders
+               .ProjectOrderToOrderDto()
+               .Where(x => x.BuyerId == User.Identity.Name)
+               .ToListAsync();
         }
 
         [HttpGet("{id}", Name = "GetOrder")]
@@ -47,7 +47,7 @@ namespace API.Controllers
                 .RetrieveBasketWithItems(User.Identity.Name)
                 .FirstOrDefaultAsync();
 
-            if (basket == null) return BadRequest(new ProblemDetails{Title = "Could not locate basket"});
+            if (basket == null) return BadRequest(new ProblemDetails { Title = "Could not locate basket" });
 
             var items = new List<OrderItem>();
 
@@ -80,7 +80,8 @@ namespace API.Controllers
                 BuyerId = User.Identity.Name,
                 ShippingAddress = orderDto.ShippingAddress,
                 Subtotal = subtotal,
-                DeliveryFee = deliveryFee
+                DeliveryFee = deliveryFee,
+                PaymentIntentId = basket.PaymentIntentId
             };
 
             _context.Orders.Add(order);
@@ -107,9 +108,9 @@ namespace API.Controllers
 
             var result = await _context.SaveChangesAsync() > 0;
 
-            if (result) return CreatedAtRoute("GetOrder", new {id = order.Id}, order.Id);
+            if (result) return CreatedAtRoute("GetOrder", new { id = order.Id }, order.Id);
 
-            return BadRequest(new ProblemDetails{Title = "Problem creating order"});
+            return BadRequest(new ProblemDetails { Title = "Problem creating order" });
         }
     }
 }
