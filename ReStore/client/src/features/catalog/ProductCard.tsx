@@ -13,7 +13,7 @@ import { Link } from "react-router-dom";
 import { Product } from "../../app/models/product";
 import { useAppDispatch, useAppSelector } from "../../app/store/configureStore";
 import { currencyFormat } from "../../app/util/util";
-import { addBasketItemAsync, setBasket } from "../basket/basketSlice";
+import { addBasketItemAsync } from "../basket/basketSlice";
 
 interface Props {
   product: Product;

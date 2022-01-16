@@ -195,6 +195,7 @@ export default function CheckoutPage() {
                   </Button>
                 )}
                 <LoadingButton
+                  loading={loading}
                   disabled={submitDisabled()}
                   variant="contained"
                   type="submit"
