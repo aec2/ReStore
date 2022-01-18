@@ -1,5 +1,4 @@
 ## Here is what I practiced in this project:
-* Here are some of the things you will learn about in this course:
 
 * Setting up the developer environment
  
