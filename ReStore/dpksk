@@ -1,0 +1,296 @@
+To improve the performance of your ASP.NET Core application using ABP and Angular, we'll optimize the `CreateByList` method by reducing database roundtrips, minimizing external service calls, and implementing bulk operations. Here's the refactored solution:
+
+### Key Performance Issues:
+1. **N+1 Query Problem**: Multiple database calls inside the loop
+2. **Redundant SAP Service Calls**: Duplicate `GetMaterial()` calls
+3. **Inefficient Stock Calculation**: Repeated filtering of same stock data
+4. **Individual Database Updates**: Per-item updates instead of bulk operations
+5. **Unbatched External Calls**: Single-item SAP goods movements
+
+### Optimized Solution:
+```csharp
+public List<GrindingResultDto> CreateByList(List<GrindingDto> grindingDtoList)
+{
+    var results = new List<GrindingResultDto>();
+    
+    // Prefetch all required data in bulk
+    var batchNumbers = grindingDtoList.Select(x => x.BatchNumber).Distinct().ToList();
+    var toolNumbers = grindingDtoList.Select(x => x.ToolNumber).Distinct().ToList();
+
+    // 1. Batch: Single query for all batches
+    var batches = _batchRepository.GetAll()
+        .Where(x => batchNumbers.Contains(x.BatchNumber))
+        .ToDictionary(x => x.BatchNumber, x => x);
+
+    // 2. Materials: Single SAP call for all materials
+    var materials = _sapService.GetMaterials(toolNumbers)  // Implement bulk method
+        .ToDictionary(x => x.MaterialNumber, x => x);
+    
+    // 3. GoodsGroups: Single query for all groups
+    var goodsGroups = _goodsGroupRepository.GetAll()
+        .Where(x => materials.Values.Select(m => m.GoodsGroup).Distinct().Contains(x.GroupName))
+        .ToDictionary(x => x.GroupName, x => x.CostCenter);
+    
+    // 4. Stocks: Precomputed storage amounts
+    var stocks = _sapService.GetAllStock(toolNumbers);
+    var storageAmounts = stocks
+        .Where(x => x.StorageLocation == StorageLocation.YariMamul && 
+                   x.ProductionLocation == ProductionLocation.Imalat)
+        .GroupBy(x => x.MaterialNumber)
+        .ToDictionary(g => g.Key, g => g.Sum(x => x.TahditsizStock));
+    
+    // 5. Bulk close operator requests
+    _operatorRequestService.CloseRequestsByBatchNumbers(batchNumbers);  // Implement bulk method
+
+    var grindingRecords = new List<Grinding>();
+    var updatedBatches = new Dictionary<Guid, Batch>();  // Track updated batches
+
+    foreach (var grindingDto in grindingDtoList)
+    {
+        var result = new GrindingResultDto { /* initialization */ };
+        
+        try
+        {
+            // 6. Use prefetched batch data
+            if (!batches.TryGetValue(grindingDto.BatchNumber, out var batch))
+                throw new UserFriendlyException(502, $"Batch {grindingDto.BatchNumber} not found");
+            
+            // Domain validations using prefetched data
+            ValidateBatchState(batch);  // Combined validation
+            ValidateAmounts(grindingDto, batch);
+            
+            // 7. Use prefetched material data
+            if (!materials.TryGetValue(grindingDto.ToolNumber, out var material))
+                throw new UserFriendlyException(502, $"Material {grindingDto.ToolNumber} not found");
+
+            // 8. Use prefetched goods group
+            var costCenter = goodsGroups.GetValueOrDefault(material.GoodsGroup) 
+                ?? throw new UserFriendlyException(404, $"{material.GoodsGroup} group not found");
+
+            // 9. Calculate decline amount
+            var declineAmount = CalculateDeclineAmount(grindingDto, batch);
+            var storageAmount = storageAmounts.GetValueOrDefault(grindingDto.ToolNumber, 0);
+
+            // 10. Track batch updates
+            UpdateBatchState(ref batch, declineAmount, grindingDto.ScrapAmount);
+            updatedBatches[batch.Id] = batch;  // Track latest state
+
+            // 11. Prepare grinding record for bulk insert
+            grindingRecords.Add(new Grinding
+            {
+                BatchId = batch.Id,
+                GrindingAmount = declineAmount,
+                GrindingTimes = grindingDto.GrindingTimes,
+                ScrapAmount = grindingDto.ScrapAmount
+            });
+
+            // 12. Execute SAP movement if needed
+            if (storageAmount >= declineAmount && declineAmount > 0)
+            {
+                ExecuteGoodsMovement(grindingDto.ToolNumber, declineAmount, 
+                                    costCenter, material.IsBatch);
+            }
+
+            result.IsSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            result.ErrorMessage = ex.Message;
+        }
+        results.Add(result);
+    }
+
+    // 13. Bulk update batches
+    _batchService.BulkUpdate(updatedBatches.Values);  // Implement bulk update
+    
+    // 14. Bulk insert grindings
+    _grindingRepository.BulkInsert(grindingRecords);  // Use bulk insert
+
+    return results;
+}
+
+// Helper Methods
+private void ValidateBatchState(Batch batch)
+{
+    if (batch.Store == BatchStore.Tezgah)
+        throw new UserFriendlyException(502, $"{batch.BatchNumber} is in machine");
+    
+    if (batch.Store == BatchStore.Toolcrib)
+        throw new UserFriendlyException(502, $"{batch.BatchNumber} is in toolcrib");
+    
+    if (batch.GrindingLife == 0)
+        throw new UserFriendlyException(502, "Grinding life must be >0");
+}
+
+private void ValidateAmounts(GrindingDto dto, Batch batch)
+{
+    if (dto.GrindingAmount < 0 || dto.ScrapAmount < 0)
+        throw new UserFriendlyException(502, "Amounts cannot be negative");
+    
+    if (batch.Amount * 2 < dto.GrindingAmount)
+        throw new UserFriendlyException(502, "Grinding amount exceeds limit");
+    
+    if (dto.ScrapAmount > batch.Amount)
+        throw new UserFriendlyException(502, "Scrap amount exceeds batch amount");
+}
+
+private decimal CalculateDeclineAmount(GrindingDto dto, Batch batch)
+{
+    decimal declineAmount = 0;
+    
+    if (dto.GrindingAmount != 0)
+    {
+        declineAmount = batch.GrindingLife > 0 
+            ? dto.GrindingAmount / (batch.GrindingLife / batch.Amount)
+            : 0;
+    }
+    
+    if (dto.ScrapAmount != 0)
+    {
+        // Scrap calculation logic
+    }
+    
+    return Math.Max(Math.Round(declineAmount, 3), 0);
+}
+
+private void UpdateBatchState(ref Batch batch, decimal declineAmount, decimal scrapAmount)
+{
+    batch.AmountLeft = (batch.AmountLeft ?? 0) - declineAmount;
+    batch.Store = BatchStore.Bilenmis_Atolye;
+    
+    if (scrapAmount != 0)
+    {
+        batch.ScrapTimes += scrapAmount;
+        if (batch.ScrapTimes >= batch.Amount)
+        {
+            batch.Status = false;
+        }
+    }
+}
+
+private void ExecuteGoodsMovement(string toolNumber, decimal amount, 
+                                 string costCenter, bool isBatch)
+{
+    _sapService.DoGoodsMovement(new GoodsMovement
+    {
+        DocumentDate = Clock.Now,
+        MoveType = SapMoveType.DepodanMasrafYeriIcinTuketim,
+        PartNo = toolNumber,
+        Quantity = amount,
+        Batch = isBatch ? "X" : "",
+        GmCode = "03",
+        FromStorage = StorageLocation.YariMamul,
+        CostCenter = costCenter,
+        FromPlant = ProductionLocation.Imalat
+    });
+}
+```
+
+### Required Supporting Methods:
+```csharp
+// SapService.cs
+public Dictionary<string, Material> GetMaterials(List<string> materialNumbers)
+{
+    // Implement batch material retrieval
+    var materials = _baseSapService.ExecuteBatchRequest<Material>(
+        "Materials/batch", 
+        materialNumbers.Select(n => new { MaterialNumber = n }).ToList()
+    );
+    return materials.ToDictionary(m => m.MaterialNumber);
+}
+
+// OperatorRequestService.cs
+public void CloseRequestsByBatchNumbers(List<string> batchNumbers)
+{
+    var requests = _operatorRequestRepository.GetAll()
+        .Where(x => batchNumbers.Contains(x.BatchNumber))
+        .ToList();
+
+    var kapaliStatus = _statusService.GetStatusByStatusCode(RequestStatus.KAPALI);
+    
+    foreach (var request in requests)
+    {
+        request.StatusId = kapaliStatus.Id;
+    }
+    
+    _operatorRequestRepository.BulkUpdate(requests);
+}
+
+// BatchService.cs
+public void BulkUpdate(IEnumerable<Batch> batches)
+{
+    // Implement EF Core bulk update or use a library like EF Plus
+    _batchRepository.BulkUpdate(batches);
+}
+```
+
+### Performance Optimizations:
+1. **Bulk Data Fetching**:
+   - Batches retrieved in single query
+   - Materials fetched with single SAP call
+   - Goods groups loaded in one query
+
+2. **Memory Optimizations**:
+   - Dictionaries for O(1) lookups
+   - Precomputed stock sums
+   - Combined validation methods
+
+3. **Bulk Operations**:
+   - Batch updates in single operation
+   - Grinding inserts in bulk
+   - Operator requests closed in bulk
+
+4. **Reduced SAP Calls**:
+   - Single `GetMaterials` call for all tool numbers
+   - Material data reused throughout process
+
+5. **Algorithm Improvements**:
+   - Combined batch validation
+   - Centralized amount calculation
+   - Avoided duplicate material lookups
+
+### Additional Recommendations:
+1. **Implement Caching**:
+   ```csharp
+   [Cache(Minutes = 30)]
+   public GoodsGroupDto GetByGroupName(string groupName)
+   {
+       // Original implementation
+   }
+   ```
+
+2. **Add Indexes**:
+   ```sql
+   CREATE INDEX IX_Batch_BatchNumber ON Batches (BatchNumber);
+   CREATE INDEX IX_GoodsGroup_GroupName ON GoodsGroups (GroupName);
+   ```
+
+3. **Parallelize Independent Operations** (use with caution):
+   ```csharp
+   var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 4 };
+   Parallel.ForEach(grindingDtoList, parallelOptions, grindingDto => 
+   {
+       // Thread-safe processing
+   });
+   ```
+
+4. **SAP Call Batching**:
+   ```csharp
+   // In SapService
+   public void BatchGoodsMovements(List<GoodsMovement> movements)
+   {
+       // Implement batch API call to SAP
+   }
+   ```
+
+5. **EF Core Performance Tips**:
+   ```csharp
+   // In your DbContext
+   optionsBuilder.UseSqlServer(connectionString, o => 
+   {
+       o.EnableRetryOnFailure();
+       o.CommandTimeout(300);
+   });
+   ```
+
+These changes should significantly reduce database roundtrips, minimize external service calls, and improve overall throughput. The exact performance gain will depend on list sizes, but typical improvements for 1000 items could be from minutes to seconds. Always test with production-like data volumes.
